@@ -1,0 +1,236 @@
+#lang racket/gui
+(define middlesex-network
+  (list
+   "Autumn Station"
+   "Brooke Station"
+   "Coconut Road"
+   "Diamond Depot"
+   "Egg Junction"
+   "Forest Grove"
+   "Garden Station"
+   "Humble Junction"
+   "Angel Station"
+   "Blue Station"
+   "Coconut Road"
+   "Dark Road"
+   "Echo Station"
+   "Fortune Road"
+   "Garden Station"))
+(struct station
+  (name
+   line
+   (things-to-do )))
+(define stations
+  (list (station "Autumn Station" 1 "")
+        (station "Brooke Station" 1 "")
+        (station "Coconut Road" 1 "")
+        (station "Diamond Depot" 1 "")
+        (station "Egg Junction" 1 "Entertainment and Recreation")
+        (station "Forest Grove" 1 "")
+        (station "Garden Station" 1 "")
+        (station "Humble Junction" 1 "")
+        (station "Angel Station" 2 "")
+        (station "Blue Station" 2 "Food and Drink")
+        (station "Coconut Road" 2 "")
+        (station "Dark Road" 2 "")
+        (station "Echo Station" 2 "Accomodation")
+        (station "Fortune Road" 2 "")
+        (station "Garden Station" 2 "")))
+(struct wherez
+  (name
+   line
+   (things-to-do )))
+(define wheres
+  (list (wherez "Egg Junction" 1 "Entertainment and Recreation")
+        (wherez "Blue Station" 2 "Food and Drink")
+        (wherez "Echo Station" 2 "Accomodation")))
+        
+        
+(struct link
+  (from
+   to
+   journey-time))
+(define links
+  (list (link "Autumn Station" "Brooke Station" 3)
+        (link "Brooke Station" "Coconut Road" 5)
+        (link "Coconut Road" "Diamond Depot" 2)
+        (link "Diamond Depot" "Egg Junction" 8)
+        (link "Egg Junction" "Forest Grove" 4)
+        (link "Forest Grove" "Garden Station" 1)
+        (link "Garden Station" "Humble Junction" 3)
+        (link "Angel Station" "Blue Station" 10)
+        (link "Blue Station" "Coconut Road" 3)
+        (link "Coconut Road" "Dark Road" 5)
+        (link "Dark Road" "Echo Station" 2)
+        (link "Echo Station" "Fortune Road" 3)
+        (link "Fortune Road" "Garden Station" 4)))
+; main frame
+(define frame1
+  (new frame%
+       [label "Student Venture"]
+       [width 400][height 300]))
+
+(new canvas% [parent frame1]
+             [paint-callback
+              (lambda (canvas dc)
+                (send dc set-scale 2 2)
+                (send dc set-text-foreground "pink")
+                (send dc draw-text "Plan Your Journey!" 31 5)
+                )])
+
+(define menu-bar
+  (new menu-bar%
+       [parent frame1]))
+(define home-menu
+  (new menu%
+       (label "&Home")
+       [parent menu-bar]))
+(define settings-menu
+  (new menu%
+       (label "&Settings")
+       [parent menu-bar]))
+(define v-panel
+  (new vertical-panel%
+       [parent frame1]
+       [spacing 3]))
+(define from-where-panel
+  (new horizontal-panel%
+       [parent v-panel]
+       [spacing 3]))
+(define from
+  (new combo-field%
+       [parent from-where-panel]
+       [label "From?"]
+       [choices (map station-name stations)] ; Populate choices with station names
+       [init-value "From?"]))
+(define where
+  (new combo-field%
+       [parent from-where-panel]
+       [label "Where?"]
+       [choices (map wherez-things-to-do wheres)] ; Populate choices with station names
+       [init-value "Where To?"]))
+; Combine time-related choices into a single horizontal panel
+(define hp
+  (new horizontal-panel%
+       [parent v-panel]
+       [spacing 10])) ; Adjust spacing between components
+
+(define leave-at
+  (new choice%
+       [parent hp]
+       [label "Leave at"]
+       [choices (list "01:00" "02:00" "03:00" "04:00" "05:00" "06:00"
+                      "07:00" "08:00" "09:00" "10:00" "11:00" "12:00")]))
+(define AMPM2
+  (new choice%
+       [parent hp]
+       [label ""]
+       [choices (list "AM" "PM")]))
+;enter
+(new button%
+     [parent frame1]
+     [label "Enter"]
+     [callback (lambda (button event)
+                 (send frame1 show #f)
+                 (show-new-frame))])
+;frame 2
+(define frame2
+  (new frame%
+       [label "Journey to..."]
+       [width 300]
+       [height 300]))
+
+(define location-entered-msg
+  (new message%
+       [label "Journey to..."]
+       [parent frame2]
+       [color "midnight blue"]
+       [stretchable-width 5]
+       [min-width 5]
+       ))
+
+(define from-msg
+  (new message%
+       [label "Travelling from:"]
+       [parent frame2]
+       [vert-margin 2]
+       [horiz-margin 2]
+       [stretchable-width 1]))
+(define to-msg
+  (new message%
+       [label "To:"]
+       [parent frame2]
+       [vert-margin 2]
+       [horiz-margin 2]
+       [stretchable-width 1]))
+(define route-time-msg
+  (new message%
+       [label "Journey time is:"]
+       [parent frame2]
+       [vert-margin 2]
+       [horiz-margin 2]
+       [stretchable-width 1]))
+(define new-button
+  (new button%
+       [parent frame2]
+       [label "Go back"]
+       [callback (lambda (button event)
+                   (send frame2 show #f)
+                   (send frame1 show #t))]))
+
+(send frame1 show #t)
+
+
+(define (plan-route from-station to-station)
+
+  (format "Route from ~a to ~a" from-station to-station))
+
+(define (calculate-station-journey-time from-station to-station)
+  (let* ((route (calculate-route from-station to-station)))
+    (if (not (empty? route))
+        (foldl (lambda (station next-station total-time)
+                 (let ((link (find-link station next-station)))
+                   (if link
+                       (+ total-time (link-journey-time link))
+                       total-time)))
+               0
+               route)
+        "Route not found")))
+
+(define (calculate-route from-station to-station)
+  (let loop ((current from-station)
+             (route '()))
+    (if (string=? current to-station)
+        (reverse (cons current route))
+        (let ((next-station (find-next-station current)))
+          (if next-station
+              (loop next-station (cons current route))
+              '())))))
+
+(define (find-next-station current-station)
+  (let ((links-to (filter (lambda (l) (equal? (link-from l) current-station))
+                          links)))
+    (if (empty? links-to)
+        #f
+        (link-to (first links-to)))))
+
+(define (find-link from-station to-station)
+  (let ((link (filter (lambda (l) (and (equal? (link-from l) from-station)
+                                       (equal? (link-to l) to-station)))
+                      links)))
+    (if (empty? link)
+        #f
+        (first link))))
+
+(define (show-new-frame)
+  (let* ([from-value (send from get-value)]
+         [to-value (send where get-value)]
+         [route-time (calculate-station-journey-time from-value to-value)])
+    (send location-entered-msg set-label (format "Journey to ~a" to-value))
+    (send from-msg set-label (format "Travelling from: ~a" from-value))
+    (send to-msg set-label (format "To: ~a" to-value))
+    (send route-time-msg set-label (format "Journey time is: ~a" route-time))
+                                   
+
+                                    
+    (send frame2 show #t)))
